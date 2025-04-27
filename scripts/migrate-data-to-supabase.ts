@@ -32,13 +32,39 @@ async function migrateDataToSupabase() {
   console.log('🚀 Migration des données vers Supabase...');
   
   try {
+    // 0. Vérifier la connexion de base à Supabase
+    console.log('🔍 Test de la connexion Supabase...');
+    console.log('🔑 URL Supabase:', process.env.SUPABASE_URL?.substring(0, 20) + '...[masqué]');
+    console.log('🔑 Clé de service présente:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+
     // 1. Vérification que les tables existent
-    const { data: brandCheck, error: brandCheckError } = await supabaseAdmin
-      .from('brands')
-      .select('count(*)', { count: 'exact', head: true });
+    console.log('🔍 Vérification des tables...');
     
-    if (brandCheckError) {
-      throw new Error(`Erreur de connexion aux tables Supabase. Assurez-vous d'avoir créé les tables: ${brandCheckError.message}`);
+    // Vérifier les tables requises
+    const tables = ['users', 'brands', 'revenue', 'ad_spend', 'ai_agents', 'ad_performance', 'ops_tasks'];
+    let allTablesOk = true;
+    
+    for (const table of tables) {
+      try {
+        const { data, error } = await supabaseAdmin
+          .from(table)
+          .select('*')
+          .limit(1);
+        
+        if (error) {
+          console.error(`❌ Table "${table}" non accessible:`, error.message);
+          allTablesOk = false;
+        } else {
+          console.log(`✅ Table "${table}" accessible`);
+        }
+      } catch (e) {
+        console.error(`❌ Exception lors de la vérification de "${table}":`, e.message);
+        allTablesOk = false;
+      }
+    }
+    
+    if (!allTablesOk) {
+      throw new Error('Une ou plusieurs tables ne sont pas accessibles dans Supabase');
     }
     
     console.log('✅ Connexion aux tables Supabase OK');
@@ -76,7 +102,15 @@ async function migrateDataToSupabase() {
       await supabaseAdmin.from('brands').delete().gte('id', 0);
       
       // Insérer les nouvelles marques (en convertissant les dates)
-      const brandsToInsert = brandsData.map(brand => convertDates(brand));
+      // Adapter les noms de colonnes de camelCase à snake_case pour Supabase
+      const brandsToInsert = brandsData.map(brand => ({
+        id: brand.id,
+        name: brand.name,
+        code: brand.code,
+        created_at: brand.createdAt ? brand.createdAt.toISOString() : new Date().toISOString()
+      }));
+      
+      console.log('Premier élément à insérer:', brandsToInsert[0]);
       
       const { error: brandsError } = await supabaseAdmin
         .from('brands')
