@@ -4,15 +4,46 @@ import {
   users, brands, revenue, adSpend, aiAgents, adPerformance, opsTasks
 } from '../shared/schema';
 
-// Fonction utilitaire pour convertir les dates au format ISO
-function convertDates(obj: any): any {
-  const newObj = { ...obj };
-  Object.keys(newObj).forEach(key => {
-    if (newObj[key] instanceof Date) {
-      newObj[key] = newObj[key].toISOString();
+// Fonction pour convertir camelCase en snake_case
+function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
+// Fonction pour adapter les données au format Supabase
+function formatForSupabase(obj: any): any {
+  const result: any = {};
+  
+  // Parcourir toutes les propriétés et les convertir
+  for (const [key, value] of Object.entries(obj)) {
+    // Ignorer l'id et brandId qui seront traités séparément
+    if (key === 'id') {
+      result.id = value;
+      continue;
     }
-  });
-  return newObj;
+    
+    // Traiter brandId spécialement
+    if (key === 'brandId') {
+      result.brand_id = value;
+      continue;
+    }
+    
+    // Convertir le nom de la clé en snake_case
+    const snakeKey = camelToSnake(key);
+    
+    // Traiter les valeurs spéciales
+    if (value instanceof Date) {
+      // Convertir les dates en format ISO string
+      result[snakeKey] = value.toISOString();
+    } else if (value === undefined) {
+      // Convertir undefined en null pour Supabase
+      result[snakeKey] = null;
+    } else {
+      // Copier les autres valeurs telles quelles
+      result[snakeKey] = value;
+    }
+  }
+  
+  return result;
 }
 
 // Fonction utilitaire pour traiter les tableaux en batch
@@ -77,8 +108,10 @@ async function migrateDataToSupabase() {
       // Supprimer les utilisateurs existants si nécessaire
       await supabaseAdmin.from('users').delete().gte('id', 0);
       
-      // Insérer les nouveaux utilisateurs (en convertissant les dates)
-      const usersToInsert = usersData.map(user => convertDates(user));
+      // Insérer les nouveaux utilisateurs (en adaptant le format pour Supabase)
+      const usersToInsert = usersData.map(user => formatForSupabase(user));
+      
+      console.log('Exemple utilisateur à insérer:', usersToInsert[0]);
       
       const { error: usersError } = await supabaseAdmin
         .from('users')
@@ -101,16 +134,10 @@ async function migrateDataToSupabase() {
       // Supprimer les marques existantes si nécessaire
       await supabaseAdmin.from('brands').delete().gte('id', 0);
       
-      // Insérer les nouvelles marques (en convertissant les dates)
-      // Adapter les noms de colonnes de camelCase à snake_case pour Supabase
-      const brandsToInsert = brandsData.map(brand => ({
-        id: brand.id,
-        name: brand.name,
-        code: brand.code,
-        created_at: brand.createdAt ? brand.createdAt.toISOString() : new Date().toISOString()
-      }));
+      // Insérer les nouvelles marques en adaptant au format Supabase
+      const brandsToInsert = brandsData.map(brand => formatForSupabase(brand));
       
-      console.log('Premier élément à insérer:', brandsToInsert[0]);
+      console.log('Exemple marque à insérer:', brandsToInsert[0]);
       
       const { error: brandsError } = await supabaseAdmin
         .from('brands')
@@ -135,11 +162,9 @@ async function migrateDataToSupabase() {
       
       // Insérer les données par lots (max 100 lignes par requête)
       const batchSize = 100;
-      const revenueToInsert = revenueData.map(rev => ({
-        ...convertDates(rev),
-        // Mapper les noms de champs si nécessaire
-        brand_id: rev.brandId
-      }));
+      const revenueToInsert = revenueData.map(rev => formatForSupabase(rev));
+      
+      console.log('Exemple de données de revenus à insérer:', revenueToInsert[0]);
       
       await processBatch(revenueToInsert, batchSize, async (batch) => {
         const { error } = await supabaseAdmin.from('revenue').insert(batch);
@@ -163,12 +188,9 @@ async function migrateDataToSupabase() {
       
       // Insérer les données par lots
       const batchSize = 100;
-      const adSpendToInsert = adSpendData.map(ad => ({
-        ...convertDates(ad),
-        // Mapper les noms de champs
-        brand_id: ad.brandId,
-        ad_set: ad.adSet
-      }));
+      const adSpendToInsert = adSpendData.map(ad => formatForSupabase(ad));
+      
+      console.log('Exemple de dépense publicitaire à insérer:', adSpendToInsert[0]);
       
       await processBatch(adSpendToInsert, batchSize, async (batch) => {
         const { error } = await supabaseAdmin.from('ad_spend').insert(batch);
@@ -191,14 +213,9 @@ async function migrateDataToSupabase() {
       await supabaseAdmin.from('ai_agents').delete().gte('id', 0);
       
       // Insérer les données
-      const aiAgentsToInsert = aiAgentsData.map(agent => ({
-        ...convertDates(agent),
-        // Mapper les noms de champs
-        brand_id: agent.brandId,
-        // Convertir les champs spéciaux
-        created_at: agent.createdAt ? agent.createdAt.toISOString() : new Date().toISOString(),
-        updated_at: agent.updatedAt ? agent.updatedAt.toISOString() : new Date().toISOString()
-      }));
+      const aiAgentsToInsert = aiAgentsData.map(agent => formatForSupabase(agent));
+      
+      console.log('Exemple d\'agent AI à insérer:', aiAgentsToInsert[0]);
       
       const { error: aiAgentsError } = await supabaseAdmin
         .from('ai_agents')
@@ -222,13 +239,9 @@ async function migrateDataToSupabase() {
       await supabaseAdmin.from('ad_performance').delete().gte('id', 0);
       
       // Insérer les données
-      const adPerformanceToInsert = adPerformanceData.map(ad => ({
-        ...convertDates(ad),
-        // Mapper les noms de champs
-        brand_id: ad.brandId,
-        ad_set_id: ad.adSetId,
-        ad_set_name: ad.adSetName
-      }));
+      const adPerformanceToInsert = adPerformanceData.map(ad => formatForSupabase(ad));
+      
+      console.log('Exemple de performance publicitaire à insérer:', adPerformanceToInsert[0]);
       
       const { error: adPerformanceError } = await supabaseAdmin
         .from('ad_performance')
@@ -252,14 +265,9 @@ async function migrateDataToSupabase() {
       await supabaseAdmin.from('ops_tasks').delete().gte('id', 0);
       
       // Insérer les données
-      const opsTasksToInsert = opsTasksData.map(task => ({
-        ...convertDates(task),
-        // Mapper les noms de champs
-        brand_id: task.brandId,
-        due_date: task.dueDate ? task.dueDate.toISOString() : null,
-        created_at: task.createdAt ? task.createdAt.toISOString() : new Date().toISOString(),
-        updated_at: task.updatedAt ? task.updatedAt.toISOString() : new Date().toISOString()
-      }));
+      const opsTasksToInsert = opsTasksData.map(task => formatForSupabase(task));
+      
+      console.log('Exemple de tâche opérationnelle à insérer:', opsTasksToInsert[0]);
       
       const { error: opsTasksError } = await supabaseAdmin
         .from('ops_tasks')
