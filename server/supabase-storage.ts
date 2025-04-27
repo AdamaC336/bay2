@@ -93,7 +93,7 @@ export class SupabaseStorage implements IStorage {
     const { data, error } = await supabaseAdmin
       .from('revenue')
       .select('*')
-      .eq('brandId', brandId)
+      .eq('brand_id', brandId)
       .gte('date', fromDate.toISOString())
       .lte('date', toDate.toISOString());
     
