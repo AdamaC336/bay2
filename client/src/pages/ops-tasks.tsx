@@ -21,14 +21,14 @@ export default function OpsTasks() {
   
   // Task metrics
   const taskMetrics = {
-    total: tasks.length,
-    todo: tasks.filter((task: any) => task.status === 'todo').length,
-    inProgress: tasks.filter((task: any) => task.status === 'in_progress').length,
-    done: tasks.filter((task: any) => task.status === 'done').length,
-    overdue: tasks.filter((task: any) => {
+    total: Array.isArray(tasks) ? tasks.length : 0,
+    todo: Array.isArray(tasks) ? tasks.filter((task: any) => task.status === 'todo').length : 0,
+    inProgress: Array.isArray(tasks) ? tasks.filter((task: any) => task.status === 'in_progress').length : 0,
+    done: Array.isArray(tasks) ? tasks.filter((task: any) => task.status === 'done').length : 0,
+    overdue: Array.isArray(tasks) ? tasks.filter((task: any) => {
       if (!task.dueDate) return false;
       return new Date(task.dueDate) < new Date() && task.status !== 'done';
-    }).length
+    }).length : 0
   };
 
   return (

@@ -581,7 +581,7 @@ export default function SupportRadar() {
                           <span className="text-slate-400">Sentiment</span>
                           <Badge 
                             variant={sentimentAnalysis.sentiment === 'positive' ? 
-                              'success' : 
+                              'default' : 
                               sentimentAnalysis.sentiment === 'neutral' ? 
                               'secondary' : 
                               'destructive'
