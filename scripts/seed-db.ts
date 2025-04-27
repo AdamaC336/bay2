@@ -1,7 +1,7 @@
-import { db } from '../server/db';
+import { db, pool } from '../server/db';
 import { 
   users, brands, revenue, adSpend, aiAgents, adPerformance, opsTasks
-} from '@shared/schema';
+} from '../shared/schema';
 
 async function seed() {
   console.log('🌱 Seeding database...');
@@ -9,6 +9,7 @@ async function seed() {
   // Création d'utilisateurs test
   const [user] = await db.insert(users).values({
     username: 'admin',
+    password: 'password123', // En production, il faudrait hasher le mot de passe
     name: 'Admin User',
     role: 'admin'
   }).returning();
@@ -386,6 +387,7 @@ seed()
   })
   .finally(async () => {
     console.log('Closing database connection...');
-    await db.end();
+    // Fermeture de la connexion à la base de données
+    await pool.end();
     process.exit(0);
   });
